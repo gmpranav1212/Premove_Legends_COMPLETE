@@ -161,8 +161,7 @@ def si(v):
 # ---------------------------------------------------------
 # GET CURRENT CLUB MEMBERS
 # ---------------------------------------------------------
-
-    def get_current_club_members():    # Current Premove Legends members confirmed from Chess.com
+def get_current_club_members():
     current_members = {
         "AaravAjishr",
         "Blinking_Blunders",
@@ -176,31 +175,6 @@ def si(v):
     }
 
     return current_members
-    url = (
-        f"https://api.chess.com/pub/club/"
-        f"{CLUB_SLUG}/members"
-    )
-
-    try:
-        data = getj(url)
-    except Exception as e:
-        if "404" in str(e):
-            return None
-        raise
-
-    members = set()
-
-    for group in ("weekly", "monthly", "all_time"):
-        for member in data.get(group, []):
-            username = member.get("username")
-
-            if username:
-                members.add(username.lower())
-
-    if not members:
-        return None
-
-    return members
 # ---------------------------------------------------------
 # RECONCILE DATABASE WITH CHESS.COM CLUB
 # ---------------------------------------------------------
