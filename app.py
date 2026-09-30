@@ -123,6 +123,72 @@ def init():
     c.close()
 
 
+def fix_duplicate_usernames(c):
+    rows = c.execute(
+        """
+        SELECT username, rating, rapid, blitz, bullet, games,
+               galactic_points, last_sync
+        FROM players
+        """
+    ).fetchall()
+
+    seen = {}
+
+    for row in rows:
+        key = row["username"].lower()
+
+        if key not in seen:
+            seen[key] = row
+            continue
+
+        existing = seen[key]
+
+        if (
+            row["games"] > existing["games"]
+            or row["rating"] > existing["rating"]
+        ):
+            keep = row
+            remove = existing
+        else:
+            keep = existing
+            remove = row
+
+        c.execute(
+            """
+            DELETE FROM players
+            WHERE username = ?
+            """,
+            (remove["username"],)
+        )
+
+        c.execute(
+            """
+            UPDATE players
+            SET rating = ?,
+                rapid = ?,
+                blitz = ?,
+                bullet = ?,
+                games = ?,
+                galactic_points = ?,
+                last_sync = ?
+            WHERE username = ?
+            """,
+            (
+                keep["rating"],
+                keep["rapid"],
+                keep["blitz"],
+                keep["bullet"],
+                keep["games"],
+                keep["galactic_points"],
+                keep["last_sync"],
+                keep["username"]
+            )
+        )
+
+        seen[key] = keep
+
+    c.commit()
+
 # ---------------------------------------------------------
 # CHESS.COM API
 # ---------------------------------------------------------
@@ -371,11 +437,12 @@ def sync_player(c, u, months=2):
 # ---------------------------------------------------------
 # STARTUP
 # ---------------------------------------------------------
-
 def seed():
     init()
 
-
+    c = db()
+    fix_duplicate_usernames(c)
+    c.close()
 # ---------------------------------------------------------
 # HOME
 # ---------------------------------------------------------
