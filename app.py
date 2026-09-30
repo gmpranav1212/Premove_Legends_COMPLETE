@@ -254,8 +254,7 @@ def sync_player(c, u, months=2):
         f"https://api.chess.com/pub/player/{u}/stats"
     )
 
-    actual_username = p.get("username", u).lower()
-
+   actual_username = p.get("username", u)
     rapid = s.get("chess_rapid", {})
     blitz = s.get("chess_blitz", {})
     bullet = s.get("chess_bullet", {})
