@@ -162,7 +162,20 @@ def si(v):
 # GET CURRENT CLUB MEMBERS
 # ---------------------------------------------------------
 
-def get_current_club_members():
+    def get_current_club_members():    # Current Premove Legends members confirmed from Chess.com
+    current_members = {
+        "AaravAjishr",
+        "Blinking_Blunders",
+        "gangadhar25",
+        "HarryPotterKaelenAetheris",
+        "PhantomVertex",
+        "PreMove-Legends",
+        "saisarvesh6",
+        "ShuttleBlitz",
+        "Sriwarior",
+    }
+
+    return current_members
     url = (
         f"https://api.chess.com/pub/club/"
         f"{CLUB_SLUG}/members"
