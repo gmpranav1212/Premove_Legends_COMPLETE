@@ -1,1 +1,226 @@
-{% extends 'base.html' %}{% block content %}<section class="pagehead"><small>🛡️ STAFF COMMAND</small><h1>MEMBER MANAGEMENT</h1><p>Add public Chess.com usernames to the sync list.</p></section><section class="panel"><form method="post" action="/admin/add" class="add"><input class="search" name="username" placeholder="Chess.com username"><button class="btn primary">ADD</button></form><div class="table"><table><thead><tr><th>USERNAME</th><th>LAST SYNC</th><th>ACTION</th></tr></thead><tbody>{% for p in players %}<tr><td>{{p.username}}</td><td>{{p.last_sync or 'Never'}}</td><td><form method="post" action="/admin/remove"><input type="hidden" name="username" value="{{p.username}}"><button class="danger">Remove</button></form></td></tr>{% endfor %}</tbody></table></div><p>Default password: <b>legend123</b>. Change ADMIN_PASSWORD before public deployment.</p><a href="/logout">Log out</a></section>{% endblock %}
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h1>⚡ STAFF COMMAND</h1>
+
+<h2>MEMBER MANAGEMENT</h2>
+
+<p>Add public Chess.com usernames to the sync list.</p>
+
+<form method="post" action="{{ url_for('add') }}">
+    <input
+        type="text"
+        name="username"
+        placeholder="Chess.com username"
+        required
+    >
+    <button type="submit">ADD</button>
+</form>
+
+<hr>
+
+<h2>🌌 GALACTIC TOURNAMENTS</h2>
+
+<p>
+    Add a Chess.com Arena tournament and calculate Galactic Points.
+</p>
+
+<form id="galacticForm">
+
+    <p>
+        <label>Tournament ID</label><br>
+        <input
+            type="text"
+            id="tournament_id"
+            placeholder="31104118"
+            required
+        >
+    </p>
+
+    <p>
+        <label>Tournament Name</label><br>
+        <input
+            type="text"
+            id="tournament_name"
+            placeholder="Galactic Championship"
+            required
+        >
+    </p>
+
+    <p>
+        <label>Tournament URL</label><br>
+        <input
+            type="url"
+            id="tournament_url"
+            placeholder="https://www.chess.com/play/arena/31104118"
+        >
+    </p>
+
+    <button type="submit">
+        🚀 ADD GALACTIC TOURNAMENT
+    </button>
+
+</form>
+
+<p id="galacticMessage"></p>
+
+<hr>
+
+<h2>👥 CLUB MEMBERS</h2>
+
+<table>
+    <thead>
+        <tr>
+            <th>USERNAME</th>
+            <th>LAST SYNC</th>
+            <th>ACTION</th>
+        </tr>
+    </thead>
+
+    <tbody>
+
+    {% for p in players %}
+
+        <tr>
+            <td>{{ p.username }}</td>
+
+            <td>
+                {{ p.last_sync or 'Never' }}
+            </td>
+
+            <td>
+                <form
+                    method="post"
+                    action="{{ url_for('remove') }}"
+                >
+                    <input
+                        type="hidden"
+                        name="username"
+                        value="{{ p.username }}"
+                    >
+
+                    <button type="submit">
+                        Remove
+                    </button>
+                </form>
+            </td>
+        </tr>
+
+    {% endfor %}
+
+    </tbody>
+</table>
+
+<hr>
+
+<p>
+    <strong>Galactic Points system:</strong>
+</p>
+
+<p>
+    🥇 1st = 25 &nbsp;
+    🥈 2nd = 18 &nbsp;
+    🥉 3rd = 15
+</p>
+
+<p>
+    4th = 12 &nbsp;
+    5th = 10 &nbsp;
+    6th–10th = 7
+</p>
+
+<p>
+    11th–20th = 4 &nbsp;
+    Participation = 2
+</p>
+
+<hr>
+
+<p>
+    Default password:
+    <strong>legend123</strong>
+</p>
+
+<p>
+    Change <strong>ADMIN_PASSWORD</strong> before public deployment.
+</p>
+
+<a href="{{ url_for('logout') }}">Log out</a>
+
+<script>
+
+document
+    .getElementById("galacticForm")
+    .addEventListener("submit", async function(event) {
+
+        event.preventDefault();
+
+        const message =
+            document.getElementById("galacticMessage");
+
+        const tournamentId =
+            document.getElementById("tournament_id").value.trim();
+
+        const tournamentName =
+            document.getElementById("tournament_name").value.trim();
+
+        let tournamentUrl =
+            document.getElementById("tournament_url").value.trim();
+
+        if (!tournamentUrl) {
+            tournamentUrl =
+                "https://www.chess.com/play/arena/"
+                + tournamentId;
+        }
+
+        message.textContent =
+            "⏳ Importing tournament results...";
+
+        try {
+
+            const response = await fetch(
+                "{{ url_for('add_galactic_tournament') }}",
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+
+                    body: JSON.stringify({
+                        tournament_id: tournamentId,
+                        name: tournamentName,
+                        url: tournamentUrl
+                    })
+                }
+            );
+
+            const data = await response.json();
+
+            if (!response.ok || !data.ok) {
+                throw new Error(
+                    data.error ||
+                    "Tournament import failed."
+                );
+            }
+
+            message.textContent =
+                "✅ " + data.message;
+
+            setTimeout(function() {
+                window.location.href =
+                    "{{ url_for('leaderboard') }}";
+            }, 1500);
+
+        } catch (error) {
+
+            message.textContent =
+                "❌ " + error.message;
+        }
+
+    });
+
+</script>
+
+{% endblock %}
