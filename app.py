@@ -169,7 +169,12 @@ def get_current_club_members():
         f"{CLUB_SLUG}/members"
     )
 
-    data = getj(url)
+    try:
+        data = getj(url)
+    except Exception as e:
+        if "404" in str(e):
+            return None
+        raise
 
     members = set()
 
@@ -180,21 +185,27 @@ def get_current_club_members():
             if username:
                 members.add(username.lower())
 
+    if not members:
+        return None
+
     return members
-
-
 # ---------------------------------------------------------
 # RECONCILE DATABASE WITH CHESS.COM CLUB
 # ---------------------------------------------------------
-
 def sync_club_members(c):
     current_members = get_current_club_members()
 
-    if not current_members:
-        raise RuntimeError(
-            "Chess.com returned an empty member list. "
-            "Database was NOT changed."
-        )
+    # Chess.com member endpoint unavailable.
+    # Keep the existing database unchanged.
+    if current_members is None:
+        database_users = {
+            row["username"].lower()
+            for row in c.execute(
+                "SELECT username FROM players"
+            ).fetchall()
+        }
+
+        return database_users, 0, 0
 
     database_users = {
         row["username"].lower()
@@ -203,7 +214,6 @@ def sync_club_members(c):
         ).fetchall()
     }
 
-    # Add new members
     added = 0
 
     for username in current_members:
@@ -217,7 +227,6 @@ def sync_club_members(c):
             )
             added += 1
 
-    # Remove members no longer in the club
     removed = 0
 
     for username in database_users - current_members:
@@ -231,8 +240,6 @@ def sync_club_members(c):
         removed += 1
 
     return current_members, added, removed
-
-
 # ---------------------------------------------------------
 # PLAYER SYNC
 # ---------------------------------------------------------
