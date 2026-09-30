@@ -194,17 +194,11 @@ def get_current_club_members():
 def sync_club_members(c):
     current_members = get_current_club_members()
 
-    # Chess.com member endpoint unavailable.
-    # Keep the existing database unchanged.
-    if current_members is None:
-        database_users = {
-            row["username"].lower()
-            for row in c.execute(
-                "SELECT username FROM players"
-            ).fetchall()
-        }
-
-        return database_users, 0, 0
+    if current_members is None or not current_members:
+        raise RuntimeError(
+            "Chess.com did not return a valid current member list. "
+            "Database was NOT changed."
+        )
 
     database_users = {
         row["username"].lower()
