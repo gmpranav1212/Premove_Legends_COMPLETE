@@ -162,42 +162,55 @@ def si(v):
 # GET CURRENT CLUB MEMBERS
 # ---------------------------------------------------------
 def get_current_club_members():
-    current_members = {
-        "AaravAjishr",
-        "Blinking_Blunders",
-        "gangadhar25",
-        "HarryPotterKaelenAetheris",
-        "PhantomVertex",
-        "PreMove-Legends",
-        "saisarvesh6",
-        "ShuttleBlitz",
-        "Sriwarior",
-    }
+    url = (
+        f"https://api.chess.com/pub/club/"
+        f"{CLUB_SLUG}/members"
+    )
 
-    return current_members
+    data = getj(url)
+
+    members = set()
+
+    for group in ("weekly", "monthly", "all_time"):
+        for member in data.get(group, []):
+            username = member.get("username")
+
+            if username:
+                members.add(username)
+
+    if not members:
+        raise RuntimeError(
+            "Chess.com returned an empty member list. "
+            "Database was NOT changed."
+        )
+
+    return members
 # ---------------------------------------------------------
 # RECONCILE DATABASE WITH CHESS.COM CLUB
 # ---------------------------------------------------------
 def sync_club_members(c):
     current_members = get_current_club_members()
 
-    if current_members is None or not current_members:
-        raise RuntimeError(
-            "Chess.com did not return a valid current member list. "
-            "Database was NOT changed."
-        )
+    current_map = {
+        username.lower(): username
+        for username in current_members
+    }
 
-    database_users = {
-        row["username"].lower()
-        for row in c.execute(
-            "SELECT username FROM players"
-        ).fetchall()
+    database_rows = c.execute(
+        "SELECT username FROM players"
+    ).fetchall()
+
+    database_map = {
+        row["username"].lower(): row["username"]
+        for row in database_rows
     }
 
     added = 0
+    removed = 0
 
-    for username in current_members:
-        if username not in database_users:
+    # Add new members
+    for key, username in current_map.items():
+        if key not in database_map:
             c.execute(
                 """
                 INSERT INTO players(username)
@@ -207,19 +220,19 @@ def sync_club_members(c):
             )
             added += 1
 
-    removed = 0
+    # Remove members who left the club
+    for key, username in database_map.items():
+        if key not in current_map:
+            c.execute(
+                """
+                DELETE FROM players
+                WHERE lower(username) = ?
+                """,
+                (key,)
+            )
+            removed += 1
 
-    for username in database_users - current_members:
-        c.execute(
-            """
-            DELETE FROM players
-            WHERE lower(username) = ?
-            """,
-            (username,)
-        )
-        removed += 1
-
-    return current_members, added, removed
+    return set(current_map.values()), added, removed
 # ---------------------------------------------------------
 # PLAYER SYNC
 # ---------------------------------------------------------
