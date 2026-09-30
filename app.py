@@ -48,17 +48,17 @@ UA = os.environ.get(
 # ---------------------------------------------------------
 # INITIAL PLAYERS
 # ---------------------------------------------------------
-
 SEED = [
+    ("AaravAjishr", 1571, 1571, 1220, 1474),
     ("blinking_blunders", 2117, 2117, 2574, 2567),
     ("sriwarior", 1992, 1992, 1743, 1606),
     ("premove-legends", 1704, 1704, 1372, 0),
-    ("harrypotterkaelenaetheris", 1640, 1640, 1506, 1266),
-    ("phantomvertex", 1160, 1160, 994, 1055),
+    ("harrypotterkaelenaetheris", 1660, 1660, 1462, 1266),
+    ("phantomvertex", 1152, 1152, 1006, 1049),
     ("shuttleblitz", 1105, 1105, 897, 809),
     ("saisarvesh6", 1044, 1044, 717, 1059),
-    ("gangadhar25", 958, 958, 852, 800),
-    ]
+    ("gangadhar25", 950, 950, 852, 800),
+]
 
 
 # ---------------------------------------------------------
@@ -118,7 +118,22 @@ def init():
             """,
             p
         )
+    # Remove players who are no longer in the club
+    allowed_users = {
+        p[0].lower()
+        for p in SEED
+    }
 
+    rows = c.execute(
+        "SELECT username FROM players"
+    ).fetchall()
+
+    for row in rows:
+        if row["username"].lower() not in allowed_users:
+            c.execute(
+                "DELETE FROM players WHERE username = ?",
+                (row["username"],)
+            )
     c.commit()
     c.close()
 
