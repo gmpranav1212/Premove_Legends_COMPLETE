@@ -106,6 +106,22 @@ def init():
         message TEXT,
         players_synced INTEGER,
         games_synced INTEGER
+    );   
+        CREATE TABLE IF NOT EXISTS galactic_tournaments(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tournament_id TEXT UNIQUE,
+        name TEXT,
+        url TEXT,
+        created_at TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS galactic_results(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tournament_id TEXT,
+        username TEXT,
+        placement INTEGER,
+        points INTEGER DEFAULT 0,
+        UNIQUE(tournament_id, username)
     );
     """)
 
@@ -203,7 +219,190 @@ def fix_duplicate_usernames(c):
         seen[key] = keep
 
     c.commit()
+# ---------------------------------------------------------
+# GALACTIC POINTS
+# ---------------------------------------------------------
+def galactic_points_for_place(placement):
+    if placement == 1:
+        return 25
+    elif placement == 2:
+        return 18
+    elif placement == 3:
+        return 15
+    elif placement == 4:
+        return 12
+    elif placement == 5:
+        return 10
+    elif 6 <= placement <= 10:
+        return 7
+    elif 11 <= placement <= 20:
+        return 4
+    else:
+        return 2
 
+
+def sync_galactic_tournament(
+    c,
+    tournament_id,
+    tournament_name,
+    tournament_url
+):
+    data = getj(
+        f"https://api.chess.com/pub/tournament/{tournament_id}"
+    )
+
+    c.execute(
+        """
+        INSERT OR IGNORE INTO galactic_tournaments
+        (tournament_id, name, url, created_at)
+        VALUES (?, ?, ?, datetime('now'))
+        """,
+        (
+            str(tournament_id),
+            tournament_name,
+            tournament_url
+        )
+    )
+
+    participants = data.get("players", [])
+
+    if not participants:
+        raise RuntimeError(
+            "No tournament players were returned by Chess.com."
+        )
+
+    for participant in participants:
+        username = participant.get("username")
+
+        if not username:
+            continue
+
+        placement = participant.get("placement")
+
+        if placement is None:
+            continue
+
+        placement = int(placement)
+        points = galactic_points_for_place(placement)
+
+        c.execute(
+            """
+            INSERT INTO galactic_results
+            (tournament_id, username, placement, points)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(tournament_id, username)
+            DO UPDATE SET
+                placement = excluded.placement,
+                points = excluded.points
+            """,
+            (
+                str(tournament_id),
+                username,
+                placement,
+                points
+            )
+        )
+
+    c.commit()
+
+
+def update_total_galactic_points(c):
+    rows = c.execute(
+        """
+        SELECT username
+        FROM players
+        """
+    ).fetchall()
+
+    for row in rows:
+        username = row["username"]
+
+        result = c.execute(
+            """
+            SELECT COALESCE(SUM(points), 0) AS total
+            FROM galactic_results
+            WHERE lower(username) = lower(?)
+            """,
+            (username,)
+        ).fetchone()
+
+        total = result["total"]
+
+        c.execute(
+            """
+            UPDATE players
+            SET galactic_points = ?
+            WHERE lower(username) = lower(?)
+            """,
+            (total, username)
+        )
+
+    c.commit()
+
+
+@APP.post("/api/admin/galactic-tournament")
+def add_galactic_tournament():
+    data = request.get_json(silent=True) or {}
+
+    tournament_id = str(
+        data.get("tournament_id", "")
+    ).strip()
+
+    tournament_name = str(
+        data.get("name", "")
+    ).strip()
+
+    tournament_url = str(
+        data.get("url", "")
+    ).strip()
+
+    if not tournament_id:
+        return jsonify({
+            "ok": False,
+            "error": "Tournament ID is required."
+        }), 400
+
+    if not tournament_name:
+        return jsonify({
+            "ok": False,
+            "error": "Tournament name is required."
+        }), 400
+
+    if not tournament_url:
+        tournament_url = (
+            f"https://www.chess.com/play/arena/"
+            f"{tournament_id}"
+        )
+
+    c = db()
+
+    try:
+        sync_galactic_tournament(
+            c,
+            tournament_id,
+            tournament_name,
+            tournament_url
+        )
+
+        update_total_galactic_points(c)
+
+        return jsonify({
+            "ok": True,
+            "message": (
+                f"{tournament_name} added successfully."
+            )
+        })
+
+    except Exception as e:
+        c.rollback()
+
+        return jsonify({
+            "ok": False,
+            "error": str(e)
+        }), 500
+
+    finally:
+        c.close()
 # ---------------------------------------------------------
 # CHESS.COM API
 # ---------------------------------------------------------
