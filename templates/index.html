@@ -1,1 +1,397 @@
-{% extends 'base.html' %}{% block content %}<section class="hero"><div><small>♜ GALACTIC CHESS COMMAND</small><h1>PREMOVE<br><span>LEGENDS</span></h1><p>One hub for members, ratings, games, tournaments and your Galactic Championship race.</p><div class="actions"><a class="btn primary" href="{{club_url}}" target="_blank">🚀 JOIN THE CLUB</a><a class="btn" href="{{tournament_url}}" target="_blank">🏆 GALACTIC CHAMPIONSHIP</a><button class="btn" onclick="syncNow()">🔄 SYNC CHESS.COM</button></div><div id="syncStatus">Ready.</div></div><div class="knight">♞</div></section><section class="cards"><div><b>{{players|length}}</b><span>Members</span></div><div><b>{{games|length}}</b><span>Recent Games</span></div><div><b>25</b><span>Champion Pts</span></div><div><b>∞</b><span>Galactic Energy</span></div></section><section class="panel"><h2>🌌 Galactic Leaderboard</h2><input class="search" id="playerSearch" placeholder="Search player..." oninput="filterRows()"><div class="table"><table id="playersTable"><thead><tr><th>#</th><th>PLAYER</th><th>RAT</th><th>RPD</th><th>BLZ</th><th>BLT</th><th>GMS</th><th>GAL</th></tr></thead><tbody>{% for p in players %}<tr><td>{{loop.index}}</td><td>{{p.username}}</td><td>{{p.rating}}</td><td>{{p.rapid}}</td><td>{{p.blitz}}</td><td>{{p.bullet}}</td><td>{{p.games}}</td><td class="gal">{{p.galactic_points}}</td></tr>{% endfor %}</tbody></table></div></section><section class="invite"><div><small>⚡ YOU ARE INVITED</small><h2>JOIN THE LEGENDS</h2><p>Fast chess • tournaments • rankings • community</p></div><a class="btn primary" href="{{club_url}}" target="_blank">JOIN NOW →</a></section>{% endblock %}
+{% extends "base.html" %}
+
+{% block title %}Premove Legends | Galactic Championship{% endblock %}
+
+{% block content %}
+
+<style>
+    .hero {
+        position: relative;
+        overflow: hidden;
+        padding: 55px 30px;
+        margin-bottom: 30px;
+        border-radius: 28px;
+        text-align: center;
+        background:
+            radial-gradient(circle at 20% 20%, rgba(0,220,255,.18), transparent 30%),
+            radial-gradient(circle at 80% 30%, rgba(180,60,255,.20), transparent 35%),
+            linear-gradient(135deg, #050817, #12052b, #030617);
+        border: 1px solid rgba(100,220,255,.35);
+        box-shadow:
+            0 0 35px rgba(50,150,255,.20),
+            inset 0 0 50px rgba(120,50,255,.08);
+    }
+
+    .hero::before,
+    .hero::after {
+        content: "";
+        position: absolute;
+        border-radius: 50%;
+        pointer-events: none;
+    }
+
+    .hero::before {
+        width: 220px;
+        height: 220px;
+        right: -80px;
+        top: -100px;
+        background: radial-gradient(circle at 35% 35%,
+            #8eeaff,
+            #2564c7 35%,
+            #16052f 70%);
+        box-shadow: 0 0 35px rgba(50,190,255,.5);
+    }
+
+    .hero::after {
+        width: 150px;
+        height: 150px;
+        left: -70px;
+        bottom: -70px;
+        background: radial-gradient(circle at 35% 35%,
+            #ff9bf5,
+            #6d28c9 45%,
+            #180326);
+        box-shadow: 0 0 35px rgba(200,70,255,.45);
+    }
+
+    .hero-content {
+        position: relative;
+        z-index: 2;
+    }
+
+    .crown {
+        font-size: 55px;
+        margin-bottom: 5px;
+        filter:
+            drop-shadow(0 0 10px #35dfff)
+            drop-shadow(0 0 20px #8d4dff);
+    }
+
+    .club-name {
+        color: #83eaff;
+        font-weight: 800;
+        letter-spacing: 5px;
+        font-size: 16px;
+        margin-bottom: 15px;
+    }
+
+    .hero h1 {
+        margin: 0;
+        font-size: clamp(42px, 8vw, 76px);
+        font-weight: 1000;
+        line-height: .95;
+        background: linear-gradient(
+            90deg,
+            #65eaff,
+            #ffffff,
+            #b979ff,
+            #ff58df
+        );
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        text-shadow: 0 0 25px rgba(80,180,255,.35);
+    }
+
+    .hero h2 {
+        margin: 14px 0 10px;
+        color: #ffd95c;
+        font-size: clamp(18px, 4vw, 28px);
+        letter-spacing: 5px;
+    }
+
+    .hero-description {
+        color: #b9d9f5;
+        font-size: 15px;
+        letter-spacing: 2px;
+        margin-bottom: 28px;
+    }
+
+    .join-button {
+        display: inline-block;
+        padding: 16px 32px;
+        border-radius: 50px;
+        text-decoration: none;
+        font-weight: 900;
+        letter-spacing: 1.5px;
+        color: #05030d;
+        background: linear-gradient(
+            90deg,
+            #54eaff,
+            #9e6aff,
+            #ff4edb,
+            #ffd44f
+        );
+        box-shadow:
+            0 0 15px rgba(70,220,255,.7),
+            0 0 35px rgba(160,70,255,.45);
+        transition: transform .2s ease, box-shadow .2s ease;
+    }
+
+    .join-button:hover {
+        transform: translateY(-3px) scale(1.03);
+        box-shadow:
+            0 0 20px rgba(255,255,255,.8),
+            0 0 45px rgba(130,80,255,.8);
+    }
+
+    .tournament-info {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 14px;
+        max-width: 850px;
+        margin: 28px auto 0;
+    }
+
+    .info-card {
+        padding: 18px 12px;
+        border-radius: 16px;
+        background: rgba(5,15,40,.72);
+        border: 1px solid rgba(110,210,255,.25);
+    }
+
+    .info-label {
+        display: block;
+        color: #79dcff;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 2px;
+        margin-bottom: 7px;
+    }
+
+    .info-value {
+        color: white;
+        font-size: 18px;
+        font-weight: 800;
+    }
+
+    .section-title {
+        margin: 35px 0 18px;
+        font-size: 24px;
+        font-weight: 900;
+        color: #ffffff;
+    }
+
+    .dashboard-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 18px;
+    }
+
+    .dashboard-card {
+        display: block;
+        padding: 25px;
+        border-radius: 20px;
+        text-decoration: none;
+        color: white;
+        background:
+            linear-gradient(
+                145deg,
+                rgba(15,25,60,.95),
+                rgba(20,8,50,.95)
+            );
+        border: 1px solid rgba(110,210,255,.25);
+        box-shadow: 0 8px 30px rgba(0,0,0,.20);
+        transition: .2s ease;
+    }
+
+    .dashboard-card:hover {
+        transform: translateY(-4px);
+        border-color: rgba(100,220,255,.65);
+        box-shadow:
+            0 12px 35px rgba(30,120,255,.20);
+    }
+
+    .dashboard-icon {
+        font-size: 35px;
+        margin-bottom: 12px;
+    }
+
+    .dashboard-card h3 {
+        margin: 0 0 7px;
+        font-size: 20px;
+    }
+
+    .dashboard-card p {
+        margin: 0;
+        color: #a8bfd8;
+        font-size: 14px;
+        line-height: 1.5;
+    }
+
+    .quick-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 22px;
+    }
+
+    .quick-link {
+        display: inline-block;
+        padding: 11px 17px;
+        border-radius: 12px;
+        text-decoration: none;
+        color: #d8f6ff;
+        background: rgba(30,60,100,.35);
+        border: 1px solid rgba(100,200,255,.2);
+        transition: .2s ease;
+    }
+
+    .quick-link:hover {
+        background: rgba(50,100,160,.45);
+        border-color: rgba(100,220,255,.5);
+    }
+
+    @media (max-width: 750px) {
+        .tournament-info,
+        .dashboard-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .hero {
+            padding: 40px 18px;
+        }
+
+        .club-name {
+            letter-spacing: 3px;
+        }
+    }
+</style>
+
+
+<!-- GALACTIC CHAMPIONSHIP HERO -->
+
+<section class="hero">
+
+    <div class="hero-content">
+
+        <div class="crown">♛</div>
+
+        <div class="club-name">
+            PREMOVE LEGENDS
+        </div>
+
+        <h1>
+            GALACTIC
+        </h1>
+
+        <h2>
+            CHAMPIONSHIP
+        </h2>
+
+        <p class="hero-description">
+            ONE CLUB • ONE UNIVERSE • ONE CHAMPION
+        </p>
+
+        <!-- NEW TOURNAMENT LINK -->
+        <a
+            href="https://www.chess.com/play/arena/31105406"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="join-button"
+        >
+            🚀 JOIN GALACTIC CHAMPIONSHIP
+        </a>
+
+        <div class="tournament-info">
+
+            <div class="info-card">
+                <span class="info-label">DATE</span>
+                <span class="info-value">1 OCT 2026</span>
+            </div>
+
+            <div class="info-card">
+                <span class="info-label">TIME</span>
+                <span class="info-value">7:30 PM</span>
+            </div>
+
+            <div class="info-card">
+                <span class="info-label">PLATFORM</span>
+                <span class="info-value">CHESS.COM</span>
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+<!-- DASHBOARD -->
+
+<h2 class="section-title">
+    🌌 Premove Legends Dashboard
+</h2>
+
+<div class="dashboard-grid">
+
+    <a href="{{ url_for('leaderboard') }}" class="dashboard-card">
+        <div class="dashboard-icon">🏆</div>
+        <h3>Leaderboard</h3>
+        <p>
+            View Galactic Points, ratings and club rankings.
+        </p>
+    </a>
+
+    <a href="{{ url_for('games') }}" class="dashboard-card">
+        <div class="dashboard-icon">♟️</div>
+        <h3>Games</h3>
+        <p>
+            Explore games played by Premove Legends members.
+        </p>
+    </a>
+
+    <a href="{{ url_for('admin_login') }}" class="dashboard-card">
+        <div class="dashboard-icon">⚙️</div>
+        <h3>Staff</h3>
+        <p>
+            Manage club members and Galactic Championship results.
+        </p>
+    </a>
+
+</div>
+
+
+<!-- QUICK LINKS -->
+
+<h2 class="section-title">
+    🚀 Quick Links
+</h2>
+
+<div class="quick-links">
+
+    <a
+        href="https://www.chess.com/club/premove-legends"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="quick-link"
+    >
+        ♟️ Chess.com Club
+    </a>
+
+    <a
+        href="https://www.chess.com/play/arena/31105406"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="quick-link"
+    >
+        🚀 Galactic Championship
+    </a>
+
+    <a
+        href="{{ url_for('leaderboard') }}"
+        class="quick-link"
+    >
+        🏆 Leaderboard
+    </a>
+
+    <a
+        href="{{ url_for('games') }}"
+        class="quick-link"
+    >
+        🎮 Games
+    </a>
+
+</div>
+
+{% endblock %}
